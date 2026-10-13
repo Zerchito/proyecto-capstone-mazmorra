@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext x='32' y='46' font-size='42' text-anchor='middle'%3E%F0%9F%A7%99%3C/text%3E%3C/svg%3E">
+<title>Mazmorra en Consola</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* Sistema visual heredado de la guía "Ecosistema Sostenible" (identidad Jala):
+   crema cálido + tinta, serif de display, mono para todo lo que es código o consola.
+   Layout: índice lateral fijo + columna de lectura; el simulador es la pieza ancha. */
+:root{
+  --bg:#EFEDE5; --panel:#F8F6EF; --panel-dim:#F1EFE6; --ink:#1C1C1A; --ink-soft:#5E5C54; --line:#DAD6C8;
+  --accent-ink:#ffffff; --bad:#9C4423; --good:#4F6E55;
+  --term-bg:#1B2018; --term-head:#131610; --term-fg:#E7E2D3; --term-dim:#7E8577; --term-ok:#9BD0A6; --term-bad:#E08D6D; --term-cmd:#9BC4D6; --term-line:#2E3329;
+  --f-display:'Playfair Display', Georgia, 'Times New Roman', serif;
+  --f-body:'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
+  --f-mono:'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --radius:10px;
+  --shadow:0 1px 0 rgba(20,20,18,.05), 0 10px 28px -18px rgba(20,20,18,.30);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151613; --panel:#1D1E1A; --panel-dim:#24251F; --ink:#ECE9DF; --ink-soft:#A8A597; --line:#36372F;
+    --accent-ink:#111; --bad:#E08D6D; --good:#9BD0A6; --term-bg:#0F120D; --term-head:#0A0C08;
+    --shadow:0 1px 0 rgba(0,0,0,.3), 0 10px 28px -18px rgba(0,0,0,.6);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151613; --panel:#1D1E1A; --panel-dim:#24251F; --ink:#ECE9DF; --ink-soft:#A8A597; --line:#36372F;
+  --accent-ink:#111; --bad:#E08D6D; --good:#9BD0A6; --term-bg:#0F120D; --term-head:#0A0C08;
+  --shadow:0 1px 0 rgba(0,0,0,.3), 0 10px 28px -18px rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *{animation:none!important; transition:none!important} }
+body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--f-body); font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased}
+a{color:var(--accent)} a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+h1,h2,h3,h4{font-family:var(--f-display); font-weight:600; margin:0 0 .45em; letter-spacing:-.01em; text-wrap:balance; color:var(--ink)}
+h2{font-size:1.9rem; line-height:1.15} h3{font-size:1.3rem; margin-top:1.6em} h4{font-size:1.05rem}
+p{margin:0 0 1em; max-width:68ch}
+code,.mono{font-family:var(--f-mono); font-size:.88em}
+p code, li code, td code{background:var(--panel-dim); border:1px solid var(--line); padding:1px 6px; border-radius:5px}
+.eyebrow{font-family:var(--f-mono); font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-weight:700; margin:0 0 .6em}
+
+.shell{display:grid; grid-template-columns:240px minmax(0,1fr); min-height:100vh}
+nav.toc{position:sticky; top:env(safe-area-inset-top,0px); align-self:start; height:100vh; overflow-y:auto; padding:28px 16px 40px 24px; border-right:1px solid var(--line); background:var(--panel)}
+.brand{display:flex; gap:10px; align-items:center; margin-bottom:26px}
+.brand .mark{width:32px; height:32px; border-radius:8px; background:var(--ink); position:relative; flex-shrink:0}
+.brand .mark::after{content:""; position:absolute; inset:8px 9px; border:2.5px solid var(--panel); border-top:none; border-radius:0 0 7px 7px}
+.brand b{font-family:var(--f-display); font-size:1.02rem; line-height:1.15; display:block}
+.brand span{font-size:.74rem; color:var(--ink-soft)}
+nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s}
+nav.toc li{counter-increment:s}
+nav.toc a{display:flex; gap:10px; align-items:baseline; padding:6px 8px; border-radius:7px; color:var(--ink-soft); font-size:.88rem; text-decoration:none}
+nav.toc a::before{content:counter(s, decimal-leading-zero); font-family:var(--f-mono); font-size:.7rem; color:var(--accent)}
+nav.toc a:hover{background:var(--panel-dim); color:var(--ink)}
+nav.toc a.active{background:var(--accent-soft); color:var(--ink); font-weight:600}
+.sibling{margin-top:24px; padding-top:16px; border-top:1px solid var(--line); font-size:.82rem; color:var(--ink-soft)}
+.mobile-bar{display:none; position:sticky; top:env(safe-area-inset-top,0px); z-index:20; background:var(--panel); border-bottom:1px solid var(--line); padding:12px 16px; font-family:var(--f-display); font-weight:600}
+@media (max-width:900px){ .shell{grid-template-columns:1fr} nav.toc{display:none} .mobile-bar{display:block} }
+
+main{min-width:0}
+section{padding:60px 56px; border-bottom:1px solid var(--line); max-width:1000px}
+@media (max-width:700px){ section{padding:44px 18px} }
+
+.hero{display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr); gap:44px; align-items:center; padding:64px 56px 52px; border-bottom:1px solid var(--line); max-width:1100px}
+@media (max-width:980px){ .hero{grid-template-columns:1fr; padding:40px 18px} }
+.hero h1{font-size:clamp(2rem, 4.4vw, 2.75rem); line-height:1.08}
+.hero h1 em{font-style:italic; color:var(--accent)}
+.lede{font-size:1.06rem; color:var(--ink-soft)}
+.cta-row{display:flex; gap:12px; flex-wrap:wrap; margin-top:22px}
+.btn{display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:8px; font:600 .92rem var(--f-body); border:1px solid transparent; cursor:pointer; text-decoration:none}
+.btn-primary{background:var(--accent); color:var(--accent-ink)} .btn-primary:hover{filter:brightness(1.08)}
+.btn-ghost{background:transparent; border-color:var(--line); color:var(--ink)} .btn-ghost:hover{background:var(--panel-dim)}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+.hero-card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; box-shadow:var(--shadow); min-width:0}
+.hero-card .head{display:flex; justify-content:space-between; gap:10px; font-family:var(--f-mono); font-size:.74rem; color:var(--ink-soft); margin-bottom:10px}
+.hero-card .head b{color:var(--accent)}
+
+table{width:100%; border-collapse:collapse; font-size:.93rem; background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden}
+.table-wrap{overflow-x:auto; margin:16px 0 26px}
+th,td{text-align:left; padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top}
+th{font-family:var(--f-mono); font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); background:var(--panel-dim)}
+tr:last-child td{border-bottom:none}
+td.mono{font-family:var(--f-mono); font-size:.86rem; white-space:nowrap}
+
+.card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px 22px; min-width:0}
+.grid-2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:16px 0}
+.grid-3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin:16px 0}
+@media (max-width:820px){ .grid-3{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:620px){ .grid-2,.grid-3{grid-template-columns:1fr} }
+.callout{border-left:3px solid var(--accent); background:var(--panel-dim); padding:14px 18px; border-radius:0 8px 8px 0; margin:18px 0; font-size:.95rem; max-width:76ch}
+.callout b{color:var(--accent)}
+.tag{display:inline-block; font-family:var(--f-mono); font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:2px 8px; border-radius:999px; background:var(--accent-soft); color:var(--ink); border:1px solid var(--line)}
+
+pre.console{background:var(--term-bg); color:var(--term-fg); border-radius:10px; padding:16px 18px; font-family:var(--f-mono); font-size:.82rem; line-height:1.55; overflow-x:auto; margin:14px 0 22px}
+pre.console .cmd{color:var(--term-cmd)} pre.console .ok{color:var(--term-ok)} pre.console .err{color:var(--term-bad)} pre.console .dim{color:var(--term-dim)}
+
+/* tabla de temas */
+.topics td:first-child{font-weight:600; white-space:nowrap}
+
+/* plan semanal */
+.weeks{display:grid; gap:10px; margin:18px 0}
+.week{display:grid; grid-template-columns:96px minmax(0,1fr) auto; gap:16px; align-items:start; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 18px}
+.week .wk{font-family:var(--f-mono); font-size:.78rem; font-weight:700; color:var(--accent)}
+.week h4{margin:0 0 4px; font-family:var(--f-body); font-weight:700; font-size:1rem}
+.week p{margin:0; font-size:.92rem; color:var(--ink-soft)}
+.week .pts{font-family:var(--f-mono); font-size:.76rem; color:var(--ink-soft); white-space:nowrap}
+@media (max-width:620px){ .week{grid-template-columns:1fr; gap:4px} }
+
+/* simulador */
+.sim{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:22px; box-shadow:var(--shadow); min-width:0}
+.fields{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px 16px; margin-bottom:14px}
+@media (max-width:820px){ .fields{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:460px){ .fields{grid-template-columns:1fr} }
+.field label{display:block; font-family:var(--f-mono); font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin-bottom:4px}
+.field input,.field select{width:100%; padding:8px 9px; border-radius:7px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font-family:var(--f-mono); font-size:.84rem}
+.field.wide{grid-column:1 / -1}
+.cmdline{font-family:var(--f-mono); font-size:.8rem; color:var(--ink-soft); background:var(--panel-dim); border:1px dashed var(--line); border-radius:8px; padding:8px 12px; margin-bottom:14px; overflow-x:auto; white-space:nowrap}
+.actions{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px}
+.badge{font-family:var(--f-mono); font-size:.8rem; background:var(--accent-soft); border:1px solid var(--line); padding:5px 11px; border-radius:999px}
+.tabs{display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; width:fit-content; margin-bottom:12px}
+.tabs button{font:700 .74rem var(--f-mono); padding:7px 13px; border:none; border-right:1px solid var(--line); background:transparent; color:var(--ink-soft); cursor:pointer}
+.tabs button:last-child{border-right:none}
+.tabs button.on{background:var(--ink); color:var(--bg)}
+.term{background:var(--term-bg); border-radius:12px; overflow:hidden; min-width:0}
+.term-head{background:var(--term-head); padding:8px 14px; display:flex; align-items:center; gap:7px}
+.term-head i{width:10px; height:10px; border-radius:50%; display:block}
+.term-head i:nth-child(1){background:#E05252} .term-head i:nth-child(2){background:#E0B252} .term-head i:nth-child(3){background:#52A752}
+.term-head span{font-family:var(--f-mono); font-size:.72rem; color:var(--term-dim); margin-left:4px}
+.term-out{font-family:var(--f-mono); font-size:.8rem; line-height:1.5; color:var(--term-fg); padding:14px 18px; white-space:pre; max-height:520px; overflow:auto; margin:0}
+.term-out .h{color:var(--term-cmd)} .term-out .ok{color:var(--term-ok)} .term-out .err{color:var(--term-bad)} .term-out .dim{color:var(--term-dim)}
+
+details.faq{border:1px solid var(--line); border-radius:10px; background:var(--panel); margin-bottom:10px; padding:14px 18px; max-width:820px}
+details.faq summary{cursor:pointer; font-weight:600; font-family:var(--f-display); font-size:1.02rem}
+details.faq[open] summary{color:var(--accent)}
+details.faq p{margin:10px 0 0}
+footer{padding:32px 56px 56px; color:var(--ink-soft); font-size:.86rem; max-width:900px}
+@media (max-width:700px){ footer{padding:28px 18px} }
+
+</style>
+</head>
+<body>
+<style>
+:root{ --accent:#A4552A; --accent-soft:#F1E0D3; --t-floor:#FBF7EE; --t-wall:#5E5C54; --t-player:#DCE6EC; --t-enemy:#F3D5CB; --t-coin:#F5E7C0; --t-potion:#DDEBDD; --t-trap:#F6DCC6; --t-exit:#D9E4D2; --t-dot:#C8BFA6; --ring1:rgba(164,85,42,.18); --ring2:rgba(164,85,42,.08); }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --accent:#E59A6A; --accent-soft:#3A2A20; --t-floor:#24251F; --t-wall:#6D6A5E; --t-player:#26333B; --t-enemy:#4A2A24; --t-coin:#44391E; --t-potion:#26372A; --t-trap:#45301F; --t-exit:#2B3826; --t-dot:#4E4D44; --ring1:rgba(229,154,106,.25); --ring2:rgba(229,154,106,.11); } }
+:root[data-theme="dark"]{ --accent:#E59A6A; --accent-soft:#3A2A20; --t-floor:#24251F; --t-wall:#6D6A5E; --t-player:#26333B; --t-enemy:#4A2A24; --t-coin:#44391E; --t-potion:#26372A; --t-trap:#45301F; --t-exit:#2B3826; --t-dot:#4E4D44; --ring1:rgba(229,154,106,.25); --ring2:rgba(229,154,106,.11); }
+.board{display:grid; gap:2px; background:var(--line); padding:2px; border-radius:6px; width:fit-content; max-width:100%}
+.tile{width:var(--s,26px); height:var(--s,26px); display:flex; align-items:center; justify-content:center; border-radius:3px; font-size:calc(var(--s,26px) * .58); line-height:1; position:relative}
+.tile.v0{background:var(--t-floor); color:var(--t-dot); font-family:var(--f-mono); font-size:calc(var(--s,26px) * .45)}
+.tile.v1{background:var(--t-wall)} .tile.v2{background:var(--t-player)} .tile.v3{background:var(--t-enemy)} .tile.v4{background:var(--t-coin)}
+.tile.v5{background:var(--t-potion)} .tile.v6{background:var(--t-trap)} .tile.v7{background:var(--t-exit)}
+.tile.r1{box-shadow:inset 0 0 0 100px var(--ring1)} .tile.r2{box-shadow:inset 0 0 0 100px var(--ring2)}
+.tile.mark{outline:2px solid var(--accent); outline-offset:-2px; z-index:1}
+.board-wrap{overflow-x:auto; max-width:100%}
+.legend-table td:first-child{width:56px}
+.legend-table .tile{display:inline-flex}
+.turn-steps{counter-reset:t; list-style:none; padding:0; margin:18px 0; display:grid; gap:10px; max-width:760px}
+.turn-steps li{counter-increment:t; display:grid; grid-template-columns:40px minmax(0,1fr); gap:12px; align-items:start; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 16px}
+.turn-steps li::before{content:counter(t); font-family:var(--f-display); font-size:1.5rem; font-weight:700; color:var(--accent); line-height:1}
+.turn-steps b{display:block}
+.turn-steps span{font-size:.92rem; color:var(--ink-soft)}
+.grid-4{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin:16px 0}
+.grid-4 .card{padding:16px}
+.rule{display:flex; flex-direction:column; gap:10px}
+.rule .pair{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.rule .arrow{font-family:var(--f-mono); color:var(--accent)}
+.rule .cmdkey{font-family:var(--f-mono); font-size:.72rem; color:var(--ink-soft)}
+.rule p{font-size:.92rem; margin:0}
+.rule .fx{font-family:var(--f-mono); font-size:.76rem; color:var(--accent); font-weight:700}
+.sim-body{display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:18px; align-items:start}
+@media (max-width:900px){ .sim-body{grid-template-columns:1fr} }
+.hud{display:grid; gap:12px}
+.hud .card{padding:14px 16px}
+.hud h4{font-family:var(--f-mono); font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin:0 0 8px; font-weight:700}
+.hearts{font-size:1.05rem; letter-spacing:2px}
+.kv{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 10px; font-size:.9rem}
+.kv span:nth-child(even){font-family:var(--f-mono); font-variant-numeric:tabular-nums; text-align:right}
+.lifebars{display:flex; align-items:flex-end; gap:2px; height:60px; margin-top:6px; overflow-x:auto}
+.lifebars div{flex:0 0 8px; background:var(--accent); border-radius:2px 2px 0 0; min-height:2px}
+.pad{display:grid; grid-template-columns:repeat(3,44px); grid-template-rows:repeat(2,40px); gap:6px; justify-content:start; margin-top:4px}
+.pad button{font:700 .9rem var(--f-mono); border:1px solid var(--line); border-radius:7px; background:var(--bg); color:var(--ink); cursor:pointer}
+.pad button:hover{background:var(--accent-soft)}
+.pad .w{grid-column:2} .pad .x{grid-column:3; grid-row:1}
+.result{font-family:var(--f-display); font-size:1.15rem; font-weight:700}
+.result.win{color:var(--good)} .result.lose{color:var(--bad)}
+.eventlog{font-family:var(--f-mono); font-size:.76rem; color:var(--ink-soft); max-height:150px; overflow:auto; white-space:pre-wrap}
+</style>
+
+<div class="mobile-bar">Mazmorra en Consola · Guía Capstone</div>
+<div class="shell">
+<nav class="toc">
+  <div class="brand"><div class="mark"></div><div><b>Mazmorra<br>en Consola</b><span>Guía del proyecto Capstone</span></div></div>
+  <ol>
+    <li><a href="#vision">Qué vas a construir</a></li>
+    <li><a href="#temas">Temas del curso</a></li>
+    <li><a href="#elementos">Elementos del mapa</a></li>
+    <li><a href="#turno">Anatomía de un turno</a></li>
+    <li><a href="#jugador">Reglas del jugador</a></li>
+    <li><a href="#enemigos">Enemigos</a></li>
+    <li><a href="#puntaje">Estadísticas y puntaje</a></li>
+    <li><a href="#parametros">Parámetros CLI</a></li>
+    <li><a href="#validaciones">Validaciones</a></li>
+    <li><a href="#avances">Avances por semana</a></li>
+    <li><a href="#simulador">Simulador</a></li>
+    <li><a href="#faq">Preguntas frecuentes</a></li>
+  </ol>
+  <p class="sibling">Prototipo de propuesta · Programación 1 · Jala University</p>
+</nav>
+
+<main>
+<header class="hero">
+  <div>
+    <p class="eyebrow">Jala University · Programación 1 · Proyecto Final</p>
+    <h1>Cada turno es una vuelta del <em>bucle</em>.</h1>
+    <p class="lede">Vas a programar en Java un juego de mazmorra por turnos que corre en la consola. El mapa es una matriz, el héroe se mueve según una cadena de comandos, recoge monedas, esquiva trampas y enfrenta enemigos que lo persiguen. El objetivo: llegar a la salida con vida.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#simulador">Jugar en el simulador</a>
+      <a class="btn btn-ghost" href="#turno">Ver cómo funciona un turno</a>
+    </div>
+  </div>
+  <div class="hero-card">
+    <div class="head"><span>c=<b id="heroCmd">DDDSDSSDDWDDSSDD</b></span><span id="heroTurn">Turno 0</span></div>
+    <div class="board-wrap"><div class="board" id="heroBoard"></div></div>
+  </div>
+</header>
+
+<section id="vision">
+  <p class="eyebrow">01 · Visión general</p>
+  <h2>Qué vas a construir</h2>
+  <p>Un juego de consola donde el jugador no presiona teclas en vivo: recibe todos sus movimientos de una vez en el parámetro <code>c</code>, por ejemplo <code>c=DDSSA</code>. El programa ejecuta un turno por letra, imprime el mapa después de cada turno con una pausa, y al final muestra si ganaste, perdiste o te quedaste sin comandos, junto con tus estadísticas y tu puntaje.</p>
+  <p>Como los comandos vienen fijos, la misma entrada siempre produce la misma salida. Eso hace que el proyecto sea fácil de probar y de calificar: dos programas correctos imprimen exactamente lo mismo.</p>
+  <div class="callout"><b>Idea clave:</b> el juego entero es un <code>for</code> que recorre los caracteres de <code>c</code>. Dentro, un <code>switch</code> decide qué le pasa al jugador según lo que hay en la celda de destino.</div>
+</section>
+
+<section id="temas">
+  <p class="eyebrow">02 · Temas del curso</p>
+  <h2>Dónde aparece cada tema</h2>
+  <div class="table-wrap"><table class="topics">
+    <thead><tr><th>Tema</th><th>Dónde aparece en el proyecto</th></tr></thead>
+    <tbody>
+      <tr><td>Variables y tipos</td><td>Vida, puntos, turno actual, fila y columna del jugador.</td></tr>
+      <tr><td>Strings</td><td>Separar <code>clave=valor</code>, partir el mapa con <code>split("#")</code>, recorrer los comandos con <code>charAt</code>.</td></tr>
+      <tr><td>Condicionales</td><td>Muros y bordes, el <code>switch</code> sobre la celda destino, victoria y derrota, rango de detección de enemigos.</td></tr>
+      <tr><td>Estructuras de control</td><td>El bucle de turnos, el recorrido del mapa para mover enemigos, <code>break</code> al terminar la partida.</td></tr>
+      <tr><td>Arreglos (1D)</td><td>Las estadísticas <code>int[4]</code>, el historial de vida por turno y la tabla de símbolos <code>char[8]</code>.</td></tr>
+      <tr><td>Matrices</td><td>El mapa <code>int[h][w]</code>, la copia para mover enemigos sin moverlos dos veces, el vecindario de 5 × 5.</td></tr>
+      <tr><td>Aritmética</td><td>Coordenadas de destino, <code>turno % 2</code>, <code>Math.abs</code> para distancias, <code>Math.min</code> para el tope de vida, el puntaje.</td></tr>
+      <tr><td>Pausas</td><td><code>Thread.sleep(s)</code> entre turnos para animar la partida.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="elementos">
+  <p class="eyebrow">03 · Elementos del mapa</p>
+  <h2>Ocho valores, ocho símbolos</h2>
+  <p>Cada celda guarda un entero del 0 al 7. En consola se dibuja con el carácter ASCII de la tabla (un arreglo indexado por el valor). Los íconos son solo para la vista visual de esta guía.</p>
+  <div class="table-wrap"><table class="legend-table">
+    <thead><tr><th>Celda</th><th>Valor</th><th>Consola</th><th>Elemento</th><th>Qué hace</th></tr></thead>
+    <tbody id="legendBody"></tbody>
+  </table></div>
+</section>
+
+<section id="turno">
+  <p class="eyebrow">04 · Anatomía de un turno</p>
+  <h2>Cinco pasos, siempre en este orden</h2>
+  <ol class="turn-steps">
+    <li><div><b>Leer el comando</b><span><code>W</code> arriba, <code>S</code> abajo, <code>A</code> izquierda, <code>D</code> derecha, <code>X</code> esperar sin moverse.</span></div></li>
+    <li><div><b>Mover al jugador</b><span>Calcular la celda destino y aplicar la regla según lo que haya allí (sección siguiente).</span></div></li>
+    <li><div><b>Mover a los enemigos (solo en turnos pares)</b><span>Si <code>turno % 2 == 0</code>, cada enemigo que te detecta se acerca o te ataca.</span></div></li>
+    <li><div><b>Revisar el final</b><span>Vida en 0 o menos: derrota. Jugador en la salida: victoria. Se acabaron los comandos: fin sin salir.</span></div></li>
+    <li><div><b>Imprimir y esperar</b><span>Encabezado del turno, mapa, vida y puntos; luego <code>Thread.sleep(s)</code>.</span></div></li>
+  </ol>
+</section>
+
+<section id="jugador">
+  <p class="eyebrow">05 · Reglas del jugador</p>
+  <h2>Qué pasa según la celda de destino</h2>
+  <p>Todos los ejemplos usan el comando <code>D</code> (derecha). El recuadro marca la celda de destino.</p>
+  <div class="grid-3" id="playerRules"></div>
+  <div class="callout"><b>El enemigo no se pisa:</b> al atacar, el enemigo desaparece pero el jugador se queda en su lugar. Se mueve recién en un turno posterior. Las monedas, pociones y trampas sí desaparecen al pisarlas.</div>
+</section>
+
+<section id="enemigos">
+  <p class="eyebrow">06 · Enemigos</p>
+  <h2>Te detectan a dos casillas</h2>
+  <p>Los enemigos solo actúan en los turnos pares. Un enemigo te detecta si estás dentro de su vecindario de 5 × 5: el anillo inmediato y el anillo externo, los mismos que en el Ecosistema Sostenible. En código basta con <code>Math.abs(df) &lt;= 2 &amp;&amp; Math.abs(dc) &lt;= 2</code>, donde <code>df</code> y <code>dc</code> son las diferencias de fila y columna.</p>
+  <div class="grid-2">
+    <div class="card rule"><h4>Vecindario de detección</h4><div class="board-wrap"><div class="board" id="ringDemo"></div></div><p>Tono fuerte: anillo inmediato (8 celdas). Tono suave: anillo externo (16 celdas). Fuera de ahí, el enemigo no hace nada.</p></div>
+    <div class="card"><h4>Qué hace un enemigo que te detecta</h4>
+      <ol style="padding-left:20px; margin:0; font-size:.94rem">
+        <li style="margin-bottom:8px"><b>Si estás pegado</b> (arriba, abajo, izquierda o derecha, sin diagonales): te ataca, <b>−1 vida</b>, y no se mueve.</li>
+        <li style="margin-bottom:8px"><b>Si no</b>, da un paso hacia ti por el eje con mayor distancia: si <code>|df| &gt;= |dc|</code> se mueve en vertical, si no en horizontal.</li>
+        <li style="margin-bottom:8px">Solo puede pisar celdas vacías. Si ese paso está bloqueado, prueba el otro eje. Si también está bloqueado, se queda quieto.</li>
+      </ol>
+    </div>
+  </div>
+  <div class="grid-3" id="enemyRules"></div>
+  <div class="callout"><b>Sin mover dos veces al mismo enemigo:</b> si recorres el mapa fila por fila y mueves un enemigo hacia abajo, el recorrido lo vuelve a encontrar en la fila siguiente y lo mueve otra vez. Copia el mapa antes de empezar, busca los enemigos en la copia y escribe los movimientos en el mapa real. Es la misma técnica de la matriz nueva del Game of Life.</div>
+</section>
+
+<section id="puntaje">
+  <p class="eyebrow">07 · Estadísticas y puntaje</p>
+  <h2>Un arreglo para cada cosa que cuentas</h2>
+  <div class="grid-2">
+    <div class="card"><h4>Estadísticas en <code>int[4]</code></h4><p>Posición 0: monedas · 1: pociones · 2: trampas pisadas · 3: enemigos derrotados.</p><h4 style="margin-top:14px">Historial de vida</h4><p>Un arreglo con la vida al final de cada turno (posición 0 = vida inicial). Al terminar se imprime como gráfico de barras con <code>#</code>, una fila por turno.</p></div>
+    <div class="card"><h4>Puntaje final</h4><p>Durante la partida: <b>+10</b> por moneda y <b>+25</b> por enemigo derrotado. Al terminar:</p><span class="mono" style="display:block; background:var(--panel-dim); border:1px solid var(--line); border-radius:6px; padding:8px 10px; font-size:.8rem; margin-top:8px; overflow-x:auto; white-space:nowrap">puntaje = puntos + vida * 5 + (victoria ? 50 : 0)</span><p style="margin-top:10px">La vida restante se cuenta solo si es positiva.</p></div>
+  </div>
+  <pre class="console" id="finalConsole"></pre>
+</section>
+
+<section id="parametros">
+  <p class="eyebrow">08 · Parámetros del programa</p>
+  <h2>Entrada desde la línea de comandos</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Parámetro</th><th>Significado</th><th>Valores permitidos</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">w</td><td>Ancho del mapa (columnas)</td><td class="mono">5, 10, 15, 20, 40</td></tr>
+      <tr><td class="mono">h</td><td>Alto del mapa (filas)</td><td class="mono">5, 10, 15, 20</td></tr>
+      <tr><td class="mono">m</td><td>Mapa inicial</td><td>Dígitos 0–7 por filas separadas por <code>#</code>, con exactamente un <code>2</code> y un <code>7</code>; o <code>rnd</code></td></tr>
+      <tr><td class="mono">c</td><td>Comandos del jugador, uno por turno</td><td>Solo <code>W A S D X</code> en mayúscula, de 1 a 200</td></tr>
+      <tr><td class="mono">s</td><td>Pausa entre turnos (ms)</td><td class="mono">0, 250, 500, 1000</td></tr>
+      <tr><td class="mono">v</td><td>Vida inicial <i>(opcional)</i></td><td class="mono">1–10 · por defecto 5</td></tr>
+    </tbody>
+  </table></div>
+  <pre class="console"><span class="cmd">java Mazmorra w=10 h=5 s=500 c=DDDSDSSDDWDDSSDD m=2004001#0110001040#0060300010#0410001500#0000100007</span>
+<span class="cmd">java Mazmorra w=15 h=10 s=250 v=8 c=DDDDSSSSAAWX m=rnd</span></pre>
+  <div class="callout"><b>Mapa aleatorio:</b> con <code>m=rnd</code> cada celda es muro con 15% de probabilidad, enemigo 4%, moneda 8%, poción 3%, trampa 5% y vacía el resto. Después se colocan el jugador y la salida en dos celdas vacías al azar.</div>
+</section>
+
+<section id="validaciones">
+  <p class="eyebrow">09 · Validaciones</p>
+  <h2>Un mapa inválido no se juega</h2>
+  <p>Igual que en los proyectos anteriores: se imprime el estado de todos los parámetros y, si alguno obligatorio falla, el juego no empieza.</p>
+  <pre class="console"><span class="cmd">java Mazmorra w=10 h=5 c=DDQ m=2000#0000#2007</span>
+
+width = <span class="ok">[10]</span>
+height = <span class="ok">[5]</span>
+map = <span class="err">[Invalido: debe haber exactamente 1 jugador (hay 2)]</span>
+commands = <span class="err">[Invalido: solo W A S D X (máx. 200)]</span>
+speed = <span class="err">[No presente]</span>
+life = <span class="ok">[5 (por defecto)]</span></pre>
+  <div class="callout"><b>Validar el mapa también es contar:</b> recorrer la matriz y contar cuántos <code>2</code> y cuántos <code>7</code> hay es un ejercicio de bucles y contadores en sí mismo.</div>
+</section>
+
+<section id="avances">
+  <p class="eyebrow">10 · Avances por semana</p>
+  <h2>Del mapa estático al juego completo</h2>
+  <div class="weeks">
+    <div class="week"><span class="wk">Semana 3</span><div><h4>Parámetros y validación</h4><p>Leer <code>args</code>, validar <code>w</code>, <code>h</code>, <code>c</code>, <code>s</code>, <code>v</code> e imprimir el reporte. Strings, condicionales.</p></div><span class="pts">Avance 1</span></div>
+    <div class="week"><span class="wk">Semana 4</span><div><h4>Mapa a matriz</h4><p>Convertir <code>m</code> (o <code>rnd</code>) en <code>int[h][w]</code>, contar jugador y salida, dibujar con el arreglo de símbolos. Matrices, contadores.</p></div><span class="pts">Evaluación parcial</span></div>
+    <div class="week"><span class="wk">Semana 5</span><div><h4>Movimiento del jugador</h4><p>Bucle de turnos sobre <code>c</code>, <code>switch</code> de dirección, bordes y muros, pausa entre turnos.</p></div><span class="pts">Avance 2</span></div>
+    <div class="week"><span class="wk">Semana 6</span><div><h4>Objetos, vida y estadísticas</h4><p>Monedas, pociones, trampas y salida; vida con tope; arreglo de estadísticas e historial de vida; victoria y derrota.</p></div><span class="pts">Avance 3</span></div>
+    <div class="week"><span class="wk">Semana 7</span><div><h4>Enemigos</h4><p>Turnos pares con <code>%</code>, detección en el vecindario 5 × 5, persecución, ataque y la copia del mapa.</p></div><span class="pts">Avance 4</span></div>
+    <div class="week"><span class="wk">Final</span><div><h4>Puntaje y entrega completa</h4><p>Puntaje final, gráfico del historial, validaciones completas y código ordenado en métodos. OOP opcional.</p></div><span class="pts">Presentación final</span></div>
+  </div>
+</section>
+
+<section id="simulador">
+  <p class="eyebrow">11 · Pruébalo</p>
+  <h2>Simulador</h2>
+  <p>Ejecuta una cadena de comandos o juega turno a turno con los botones (o las teclas W A S D X cuando el tablero tiene el foco). Cada botón agrega su letra al parámetro <code>c</code>, así que al final tienes la línea de comandos exacta para probar tu programa.</p>
+  <div class="sim">
+    <div class="fields">
+      <div class="field"><label for="r-w">w (ancho)</label><input id="r-w" value="10"></div>
+      <div class="field"><label for="r-h">h (alto)</label><input id="r-h" value="5"></div>
+      <div class="field"><label for="r-s">s (ms entre turnos)</label><input id="r-s" value="500"></div>
+      <div class="field wide"><label for="r-m">m (mapa)</label><input id="r-m" value="2004001#0110001040#0060300010#0410001500#0000100007"></div>
+      <div class="field"><label for="r-c">c (comandos)</label><input id="r-c" value="DDDSDSSDDWDDSSDD"></div>
+      <div class="field"><label for="r-v">v (vida, opcional)</label><input id="r-v" value="5"></div>
+    </div>
+    <div class="cmdline" id="r-cmd"></div>
+    <div class="actions">
+      <button class="btn btn-primary" id="r-run">Ejecutar comandos</button>
+      <button class="btn btn-ghost" id="r-step">Siguiente turno</button>
+      <button class="btn btn-ghost" id="r-reset">Reiniciar</button>
+      <button class="btn btn-ghost" id="r-rnd">Mapa aleatorio</button>
+      <span class="badge" id="r-badge">Turno 0</span>
+    </div>
+    <div class="tabs"><button id="r-tab-vis" class="on">Visual</button><button id="r-tab-con">Consola</button></div>
+    <div class="sim-body">
+      <div style="min-width:0">
+        <div id="r-visual"><div class="board-wrap" tabindex="0" id="r-focus" aria-label="Tablero: usa W A S D X para jugar"><div class="board" id="r-board"></div></div></div>
+        <div class="term" id="r-term" hidden><div class="term-head"><i></i><i></i><i></i><span>java Mazmorra — salida</span></div><pre class="term-out" id="r-out"></pre></div>
+      </div>
+      <div class="hud">
+        <div class="card"><h4>Jugar turno a turno</h4><div class="pad"><button class="w" data-k="W">W</button><button class="x" data-k="X">X</button><button data-k="A">A</button><button data-k="S">S</button><button data-k="D">D</button></div></div>
+        <div class="card"><h4>Estado</h4><div class="hearts" id="r-hearts"></div><div class="kv" id="r-kv" style="margin-top:8px"></div><div id="r-result" style="margin-top:8px"></div></div>
+        <div class="card"><h4>Historial de vida</h4><div class="lifebars" id="r-life"></div></div>
+        <div class="card"><h4>Último turno</h4><div class="eventlog" id="r-events">—</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <p class="eyebrow">12 · Preguntas frecuentes</p>
+  <h2>Dudas típicas al implementar</h2>
+  <details class="faq"><summary>¿Los enemigos se mueven antes o después del jugador?</summary><p>Después. En cada turno par, primero se mueve el jugador y luego los enemigos. Si el jugador llegó a la salida o murió en su movimiento, los enemigos ya no actúan.</p></details>
+  <details class="faq"><summary>¿Qué pasa si el comando me saca del mapa?</summary><p>Nada: el jugador choca con el borde, se queda en su lugar y el turno cuenta igual. Es el mismo caso que chocar con un muro.</p></details>
+  <details class="faq"><summary>¿La poción puede subir la vida por encima de la inicial?</summary><p>Sí, hasta un tope de 10. Usa <code>Math.min(10, vida + 2)</code>.</p></details>
+  <details class="faq"><summary>¿Por qué el enemigo no ataca en diagonal?</summary><p>Para que la condición sea una sola suma: <code>Math.abs(df) + Math.abs(dc) == 1</code>. Un enemigo en diagonal primero da un paso y queda pegado; ataca en su siguiente turno par.</p></details>
+  <details class="faq"><summary>¿En qué orden se procesan los enemigos?</summary><p>Fila por fila, de izquierda a derecha, leyendo las posiciones de la copia del mapa. Ese orden importa cuando dos enemigos quieren la misma celda: gana el primero del recorrido.</p></details>
+  <details class="faq"><summary>¿Puedo leer los comandos del teclado en vivo con Scanner?</summary><p>Como mejora opcional, sí. Pero la entrega se califica con el parámetro <code>c</code>, porque así la salida es siempre la misma y se puede comparar.</p></details>
+</section>
+
+<footer>Prototipo de propuesta para el Proyecto Final de Programación 1 · Jala University. El simulador de esta página es una implementación de referencia en JavaScript para comparar resultados; no reemplaza la entrega en Java.</footer>
+</main>
+</div>
+
+<script>
+/* ===== Motor de referencia: Mazmorra en Consola ===== */
+const VAC = 0, MURO = 1, JUG = 2, ENE = 3, MON = 4, POC = 5, TRA = 6, SAL = 7;
+const ASCII = ['.', '#', '@', 'E', '$', '+', '^', '>'];
+const EMOJI = ['', '🧱', '🧙', '👾', '🪙', '🧪', '🔥', '🚪'];
+const R_ANCHOS = [5, 10, 15, 20, 40];
+const R_ALTOS = [5, 10, 15, 20];
+const R_VELOCIDADES = [0, 250, 500, 1000];
+const DIRECCIONES = { W: [-1, 0], S: [1, 0], A: [0, -1], D: [0, 1], X: [0, 0] };
+const VIDA_TOPE = 10;
+
+function rMatriz(h, w) { return Array.from({ length: h }, () => Array(w).fill(VAC)); }
+function rCopia(m) { return m.map(f => f.slice()); }
+
+function mapaAleatorio(h, w) {
+  const m = rMatriz(h, w);
+  for (let i = 0; i < h; i++) for (let j = 0; j < w; j++) {
+    const r = Math.random() * 100;
+    if (r < 15) m[i][j] = MURO;
+    else if (r < 19) m[i][j] = ENE;
+    else if (r < 27) m[i][j] = MON;
+    else if (r < 30) m[i][j] = POC;
+    else if (r < 35) m[i][j] = TRA;
+  }
+  const vacias = [];
+  for (let i = 0; i < h; i++) for (let j = 0; j < w; j++) if (m[i][j] === VAC) vacias.push([i, j]);
+  const a = vacias.splice(Math.floor(Math.random() * vacias.length), 1)[0];
+  const b = vacias.splice(Math.floor(Math.random() * vacias.length), 1)[0];
+  m[a[0]][a[1]] = JUG; m[b[0]][b[1]] = SAL;
+  return m;
+}
+
+function parsearMapa(texto, h, w) {
+  if (texto === 'rnd') return { ok: true, m: mapaAleatorio(h, w) };
+  const filas = texto.split('#');
+  while (filas.length && filas[filas.length - 1] === '') filas.pop();
+  if (filas.length > h) return { ok: false, msg: 'tiene ' + filas.length + ' filas y h=' + h };
+  const m = rMatriz(h, w);
+  let jugadores = 0, salidas = 0;
+  for (let i = 0; i < filas.length; i++) {
+    if (filas[i].length > w) return { ok: false, msg: 'la fila ' + (i + 1) + ' tiene más de ' + w + ' celdas' };
+    for (let j = 0; j < filas[i].length; j++) {
+      const ch = filas[i][j];
+      if (ch < '0' || ch > '7') return { ok: false, msg: 'carácter inválido "' + ch + '"' };
+      m[i][j] = Number(ch);
+      if (m[i][j] === JUG) jugadores++;
+      if (m[i][j] === SAL) salidas++;
+    }
+  }
+  if (jugadores !== 1) return { ok: false, msg: 'debe haber exactamente 1 jugador (hay ' + jugadores + ')' };
+  if (salidas !== 1) return { ok: false, msg: 'debe haber exactamente 1 salida (hay ' + salidas + ')' };
+  return { ok: true, m };
+}
+
+function validarMazmorra(args) {
+  const r = { lineas: [], ok: true };
+  const num = v => (v !== undefined && /^\d+$/.test(v)) ? Number(v) : NaN;
+  const marcar = (nombre, valor, okValor) => {
+    if (valor === undefined || valor === '') { r.lineas.push([nombre, 'No presente', false]); r.ok = false; return; }
+    if (!okValor) { r.lineas.push([nombre, 'Invalido', false]); r.ok = false; return; }
+    r.lineas.push([nombre, valor, true]);
+  };
+  const w = num(args.w), h = num(args.h), s = num(args.s);
+  marcar('width', args.w, R_ANCHOS.includes(w));
+  marcar('height', args.h, R_ALTOS.includes(h));
+  let mapa = null;
+  if (args.m === undefined || args.m === '') { r.lineas.push(['map', 'No presente', false]); r.ok = false; }
+  else if (R_ANCHOS.includes(w) && R_ALTOS.includes(h)) {
+    const p = parsearMapa(args.m, h, w);
+    if (p.ok) { mapa = p.m; r.lineas.push(['map', args.m, true]); }
+    else { r.lineas.push(['map', 'Invalido: ' + p.msg, false]); r.ok = false; }
+  } else { r.lineas.push(['map', 'No se puede validar sin w y h válidos', false]); r.ok = false; }
+  if (args.c === undefined || args.c === '') { r.lineas.push(['commands', 'No presente', false]); r.ok = false; }
+  else if (!/^[WASDX]+$/.test(args.c) || args.c.length > 200) {
+    r.lineas.push(['commands', 'Invalido: solo W A S D X (máx. 200)', false]); r.ok = false;
+  } else r.lineas.push(['commands', args.c + ' (' + args.c.length + ' turnos)', true]);
+  marcar('speed', args.s, R_VELOCIDADES.includes(s));
+  let v = 5;
+  if (args.v === undefined || args.v === '') r.lineas.push(['life', '5 (por defecto)', true]);
+  else {
+    const vv = num(args.v);
+    if (vv >= 1 && vv <= 10) { v = vv; r.lineas.push(['life', String(vv), true]); }
+    else { r.lineas.push(['life', 'Invalido', false]); r.ok = false; }
+  }
+  r.datos = { w, h, s, v, mapa, comandos: args.c || '' };
+  return r;
+}
+
+function crearPartida(mapa, vida) {
+  let fila = 0, col = 0;
+  for (let i = 0; i < mapa.length; i++) for (let j = 0; j < mapa[0].length; j++) if (mapa[i][j] === JUG) { fila = i; col = j; }
+  return {
+    mapa: rCopia(mapa), fila, col, vida, turno: 0,
+    stats: [0, 0, 0, 0], // monedas, pociones, trampas, enemigos derrotados
+    puntos: 0, historial: [vida], fin: null, eventos: []
+  };
+}
+
+function moverEnemigos(p, ev) {
+  const antes = rCopia(p.mapa);
+  const h = antes.length, w = antes[0].length;
+  for (let i = 0; i < h; i++) for (let j = 0; j < w; j++) {
+    if (antes[i][j] !== ENE) continue;
+    const dr = p.fila - i, dc = p.col - j;
+    if (Math.abs(dr) > 2 || Math.abs(dc) > 2) continue; // fuera de su vecindario 5x5
+    if (Math.abs(dr) + Math.abs(dc) === 1) {
+      p.vida -= 1;
+      ev.push('Un enemigo en (' + i + ',' + j + ') te ataca: −1 vida');
+      continue;
+    }
+    const vertical = [Math.sign(dr), 0], horizontal = [0, Math.sign(dc)];
+    const intentos = Math.abs(dr) >= Math.abs(dc) ? [vertical, horizontal] : [horizontal, vertical];
+    for (const [a, b] of intentos) {
+      if (a === 0 && b === 0) continue;
+      const ni = i + a, nj = j + b;
+      if (ni >= 0 && ni < h && nj >= 0 && nj < w && p.mapa[ni][nj] === VAC) {
+        p.mapa[i][j] = VAC; p.mapa[ni][nj] = ENE;
+        ev.push('Un enemigo te persigue: (' + i + ',' + j + ') → (' + ni + ',' + nj + ')');
+        break;
+      }
+    }
+  }
+}
+
+function jugarTurno(p, cmd) {
+  if (p.fin) return [];
+  p.turno++;
+  const ev = [];
+  const [dr, dc] = DIRECCIONES[cmd];
+  if (cmd === 'X') ev.push('Esperas un turno.');
+  else {
+    const nr = p.fila + dr, nc = p.col + dc;
+    const h = p.mapa.length, w = p.mapa[0].length;
+    if (nr < 0 || nr >= h || nc < 0 || nc >= w || p.mapa[nr][nc] === MURO) {
+      ev.push('Chocas con ' + (nr < 0 || nr >= h || nc < 0 || nc >= w ? 'el borde del mapa.' : 'un muro.'));
+    } else {
+      const destino = p.mapa[nr][nc];
+      let avanza = true;
+      switch (destino) {
+        case MON: p.stats[0]++; p.puntos += 10; ev.push('Recoges una moneda: +10 puntos'); break;
+        case POC: p.stats[1]++; p.vida = Math.min(VIDA_TOPE, p.vida + 2); ev.push('Bebes una poción: +2 vida'); break;
+        case TRA: p.stats[2]++; p.vida -= 2; ev.push('¡Trampa! −2 vida'); break;
+        case ENE:
+          avanza = false; p.mapa[nr][nc] = VAC; p.stats[3]++; p.puntos += 25; p.vida -= 1;
+          ev.push('Atacas al enemigo y lo derrotas: +25 puntos, −1 vida'); break;
+        case SAL: ev.push('Llegas a la salida.'); p.fin = 'victoria'; break;
+        default: break;
+      }
+      if (avanza) {
+        p.mapa[p.fila][p.col] = VAC;
+        p.mapa[nr][nc] = JUG;
+        p.fila = nr; p.col = nc;
+      }
+    }
+  }
+  if (!p.fin && p.vida <= 0) p.fin = 'derrota';
+  if (!p.fin && p.turno % 2 === 0) moverEnemigos(p, ev);
+  if (!p.fin && p.vida <= 0) p.fin = 'derrota';
+  p.historial.push(Math.max(0, p.vida));
+  p.eventos = ev;
+  return ev;
+}
+
+function puntajeFinal(p) {
+  return p.puntos + Math.max(0, p.vida) * 5 + (p.fin === 'victoria' ? 50 : 0);
+}
+
+if (typeof module !== 'undefined') module.exports = { ASCII, parsearMapa, validarMazmorra, crearPartida, jugarTurno, puntajeFinal };
+
+/* ===== Interfaz de la guía de la mazmorra ===== */
+const NOMBRES = ['Vacío', 'Muro', 'Jugador', 'Enemigo', 'Moneda', 'Poción', 'Trampa', 'Salida'];
+const DESCR = [
+  'Suelo libre. Jugador y enemigos pueden pisarlo.',
+  'Bloquea el paso de todos. Nunca cambia.',
+  'Tú. Hay exactamente uno en el mapa.',
+  'Te persigue en los turnos pares si estás a 2 casillas o menos.',
+  '+10 puntos al pisarla; desaparece.',
+  '+2 vida (tope 10) al pisarla; desaparece.',
+  '−2 vida al pisarla; desaparece.',
+  'Pisarla es la victoria. Hay exactamente una.'
+];
+function dibujarTablero(cont, m, size, extra) {
+  extra = extra || {};
+  cont.style.gridTemplateColumns = 'repeat(' + m[0].length + ', ' + size + 'px)';
+  cont.style.setProperty('--s', size + 'px');
+  cont.innerHTML = '';
+  for (let i = 0; i < m.length; i++) for (let j = 0; j < m[0].length; j++) {
+    const d = document.createElement('div');
+    const v = m[i][j];
+    d.className = 'tile v' + v + (extra.clase ? ' ' + (extra.clase(i, j) || '') : '');
+    d.textContent = v === 0 ? '·' : EMOJI[v];
+    cont.appendChild(d);
+  }
+}
+function tablero(m, size, extra) {
+  const wrap = document.createElement('div'); wrap.className = 'board-wrap';
+  const b = document.createElement('div'); b.className = 'board';
+  dibujarTablero(b, m, size, extra); wrap.appendChild(b); return wrap;
+}
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function mapaTexto(m) { return m.map(f => f.map(v => ASCII[v]).join(' ')).join('\n'); }
+function estadoTexto(p) { return 'vida = ' + Math.max(0, p.vida) + '   puntos = ' + p.puntos; }
+function cierreTexto(p) {
+  const titulo = p.fin === 'victoria' ? '<span class="ok">══ VICTORIA ══</span>' : p.fin === 'derrota' ? '<span class="err">══ DERROTA ══</span>' : '<span class="h">══ FIN DE LOS COMANDOS: no llegaste a la salida ══</span>';
+  const vida = Math.max(0, p.vida);
+  let t = titulo + '\n';
+  t += 'monedas = ' + p.stats[0] + '   pociones = ' + p.stats[1] + '   trampas = ' + p.stats[2] + '   enemigos = ' + p.stats[3] + '\n';
+  t += 'puntaje = ' + p.puntos + ' + ' + vida + '*5' + (p.fin === 'victoria' ? ' + 50' : '') + ' = ' + puntajeFinal(p) + '\n\nHistorial de vida\n';
+  t += p.historial.map((v, i) => ('T' + i).padEnd(5) + '#'.repeat(v) + ' ' + v).join('\n');
+  return t;
+}
+
+const EJEMPLO = { w: '10', h: '5', m: '2004001#0110001040#0060300010#0410001500#0000100007', c: 'DDDSDSSDDWDDSSDD', s: '500', v: '5' };
+
+/* --- leyenda --- */
+(function () {
+  const body = document.getElementById('legendBody');
+  for (let v = 0; v < 8; v++) {
+    const tr = document.createElement('tr');
+    const td0 = document.createElement('td');
+    const t = document.createElement('div'); t.className = 'tile v' + v; t.style.setProperty('--s', '30px'); t.textContent = v === 0 ? '·' : EMOJI[v];
+    td0.appendChild(t);
+    tr.appendChild(td0);
+    tr.insertAdjacentHTML('beforeend', '<td class="mono">' + v + '</td><td class="mono">' + esc(ASCII[v]) + '</td><td><b>' + NOMBRES[v] + '</b></td><td>' + DESCR[v] + '</td>');
+    body.appendChild(tr);
+  }
+})();
+
+/* --- reglas del jugador --- */
+(function () {
+  const casos = [
+    ['Celda vacía', '000#020#000', 'Avanza.'],
+    ['Muro', '000#021#000', 'Choca y se queda en su lugar.'],
+    ['Borde del mapa', '000#002#000', 'Igual que un muro: no sale del mapa.'],
+    ['Moneda', '000#024#000', 'Avanza y suma 10 puntos.'],
+    ['Poción', '000#025#000', 'Avanza y recupera 2 de vida.'],
+    ['Trampa', '000#026#000', 'Avanza y pierde 2 de vida.'],
+    ['Enemigo', '000#023#000', 'Lo derrota sin moverse: +25 puntos, −1 vida.'],
+    ['Salida', '000#027#000', 'Avanza y gana la partida.']
+  ];
+  const cont = document.getElementById('playerRules');
+  cont.className = 'grid-4';
+  casos.forEach(([titulo, mapa, texto]) => {
+    let m = mapa.split('#').map(r => r.split('').map(Number));
+    if (titulo === 'Borde del mapa') m = [[0, 0], [0, 2], [0, 0]];
+    const p = crearPartida(m, 5);
+    const antes = rCopia(p.mapa);
+    const tc = p.col + 1;
+    jugarTurno(p, 'D');
+    const card = document.createElement('div'); card.className = 'card rule';
+    card.innerHTML = '<h4>' + titulo + '</h4>';
+    const pair = document.createElement('div'); pair.className = 'pair';
+    pair.appendChild(tablero(antes, 20, { clase: (i, j) => (i === 1 && j === tc) ? 'mark' : '' }));
+    const ar = document.createElement('span'); ar.className = 'arrow'; ar.textContent = 'D →'; pair.appendChild(ar);
+    pair.appendChild(tablero(p.mapa, 20));
+    card.appendChild(pair);
+    const fx = [];
+    if (p.vida !== 5) fx.push('vida ' + (p.vida > 5 ? '+' : '') + (p.vida - 5));
+    if (p.puntos) fx.push('+' + p.puntos + ' pts');
+    if (p.fin === 'victoria') fx.push('victoria');
+    card.insertAdjacentHTML('beforeend', '<p>' + texto + '</p>' + (fx.length ? '<span class="fx">' + fx.join(' · ') + '</span>' : ''));
+    cont.appendChild(card);
+  });
+})();
+
+/* --- enemigos --- */
+(function () {
+  const ring = [];
+  for (let i = 0; i < 7; i++) { ring.push([]); for (let j = 0; j < 7; j++) ring[i].push(0); }
+  ring[3][3] = ENE; ring[1][4] = JUG; ring[0][6] = MON;
+  const b = document.getElementById('ringDemo');
+  dibujarTablero(b, ring, 28, {
+    clase: (i, j) => {
+      const d = Math.max(Math.abs(i - 3), Math.abs(j - 3));
+      return d === 1 ? 'r1' : d === 2 ? 'r2' : '';
+    }
+  });
+  const casos = [
+    ['Te ataca', '00000#00000#00230#00000#00000', 'Está pegado a tu derecha: −1 vida y no se mueve.'],
+    ['Te persigue', '00030#00000#00200#00000#00000', 'df = 2, dc = −1. Como |df| ≥ |dc|, baja una fila.'],
+    ['Prueba el otro eje', '00030#00010#00200#00000#00000', 'Hacia abajo hay un muro, así que da el paso en horizontal.']
+  ];
+  const cont = document.getElementById('enemyRules');
+  casos.forEach(([titulo, mapa, texto]) => {
+    const m = mapa.split('#').map(r => r.split('').map(Number));
+    const p = crearPartida(m, 5);
+    const antes = rCopia(p.mapa);
+    const ev = []; moverEnemigos(p, ev);
+    const card = document.createElement('div'); card.className = 'card rule';
+    card.innerHTML = '<h4>' + titulo + '</h4>';
+    const pair = document.createElement('div'); pair.className = 'pair';
+    pair.appendChild(tablero(antes, 22));
+    const ar = document.createElement('span'); ar.className = 'arrow'; ar.textContent = '→'; pair.appendChild(ar);
+    pair.appendChild(tablero(p.mapa, 22));
+    card.appendChild(pair);
+    card.insertAdjacentHTML('beforeend', '<p>' + texto + '</p>' + (p.vida !== 5 ? '<span class="fx">vida −1</span>' : ''));
+    cont.appendChild(card);
+  });
+})();
+
+/* --- cierre de ejemplo --- */
+(function () {
+  const val = validarMazmorra(EJEMPLO);
+  const p = crearPartida(val.datos.mapa, 5);
+  for (const c of EJEMPLO.c) { jugarTurno(p, c); if (p.fin) break; }
+  document.getElementById('finalConsole').innerHTML = '<span class="dim">… después del último turno del ejemplo:</span>\n' + cierreTexto(p).replace(/class="h"/g, 'class="cmd"');
+})();
+
+/* --- hero --- */
+(function () {
+  const b = document.getElementById('heroBoard'), lab = document.getElementById('heroTurn');
+  const val = validarMazmorra(EJEMPLO);
+  let p = crearPartida(val.datos.mapa, 5), idx = 0;
+  const tam = () => Math.max(22, Math.min(36, Math.floor((b.parentElement.clientWidth - 24) / 10)));
+  dibujarTablero(b, p.mapa, tam());
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  setInterval(() => {
+    if (p.fin || idx >= EJEMPLO.c.length) { p = crearPartida(val.datos.mapa, 5); idx = 0; lab.textContent = 'Turno 0'; dibujarTablero(b, p.mapa, tam()); return; }
+    jugarTurno(p, EJEMPLO.c[idx++]);
+    lab.textContent = 'Turno ' + p.turno + (p.fin === 'victoria' ? ' · ¡victoria!' : '');
+    dibujarTablero(b, p.mapa, tam());
+  }, 700);
+})();
+
+/* --- simulador --- */
+(function () {
+  const $ = id => document.getElementById(id);
+  const ids = ['w', 'h', 'm', 'c', 's', 'v'];
+  let partida = null, val = null, idx = 0, timer = null, vista = 'vis', log = '';
+
+  function leer() { const a = {}; ids.forEach(k => { const v = $('r-' + k).value.trim(); if (v !== '') a[k] = v; }); return a; }
+  function actualizarCmd() { const a = leer(); $('r-cmd').textContent = 'java Mazmorra ' + ids.filter(k => a[k] !== undefined).map(k => k + '=' + a[k]).join(' '); }
+  function reporte(v) { return v.lineas.map(([n, x, ok]) => n + ' = <span class="' + (ok ? 'ok' : 'err') + '">[' + esc(x) + ']</span>').join('\n'); }
+  function detener() { if (timer) { clearInterval(timer); timer = null; } }
+
+  function render() {
+    if (!partida) return;
+    const size = Math.max(14, Math.min(34, Math.floor(($('r-visual').clientWidth || 600) / partida.mapa[0].length) - 2));
+    dibujarTablero($('r-board'), partida.mapa, size);
+    $('r-badge').textContent = 'Turno ' + partida.turno + ' / ' + val.datos.comandos.length;
+    const vida = Math.max(0, partida.vida);
+    $('r-hearts').textContent = vida ? '❤'.repeat(vida) : '—';
+    $('r-kv').innerHTML = ['Vida', vida, 'Puntos', partida.puntos, 'Monedas', partida.stats[0], 'Pociones', partida.stats[1], 'Trampas', partida.stats[2], 'Enemigos', partida.stats[3]].map(x => '<span>' + x + '</span>').join('');
+    const mayor = Math.max(10, ...partida.historial);
+    $('r-life').innerHTML = partida.historial.map(v => '<div style="height:' + (v * 100 / mayor) + '%" title="' + v + '"></div>').join('');
+    $('r-events').textContent = partida.eventos.length ? partida.eventos.join('\n') : (partida.turno ? 'Sin novedades.' : 'Listo para el turno 1.');
+    const terminado = partida.fin || partida.turno >= val.datos.comandos.length;
+    const r = $('r-result');
+    if (partida.fin === 'victoria') r.innerHTML = '<span class="result win">Victoria · puntaje ' + puntajeFinal(partida) + '</span>';
+    else if (partida.fin === 'derrota') r.innerHTML = '<span class="result lose">Derrota · puntaje ' + puntajeFinal(partida) + '</span>';
+    else if (terminado) r.innerHTML = '<span class="result">Sin comandos · puntaje ' + puntajeFinal(partida) + '</span>';
+    else r.innerHTML = '';
+    $('r-out').innerHTML = log + (terminado ? '\n\n' + cierreTexto(partida) : '');
+    $('r-out').scrollTop = $('r-out').scrollHeight;
+  }
+  function iniciar() {
+    detener(); actualizarCmd();
+    val = validarMazmorra(leer());
+    if (!val.ok) {
+      partida = null;
+      log = reporte(val) + '\n\n<span class="err">El juego no empieza: corrige los parámetros marcados.</span>';
+      $('r-out').innerHTML = log;
+      $('r-board').innerHTML = ''; $('r-badge').textContent = 'Turno —';
+      $('r-events').textContent = 'Hay parámetros inválidos. Revisa la vista de consola.';
+      $('r-result').innerHTML = ''; $('r-kv').innerHTML = ''; $('r-hearts').textContent = ''; $('r-life').innerHTML = '';
+      setVista('con');
+      return false;
+    }
+    partida = crearPartida(val.datos.mapa, val.datos.v);
+    idx = 0;
+    log = reporte(val) + '\n\n<span class="h">── Turno 0 · mapa inicial ──</span>\n' + esc(mapaTexto(partida.mapa)) + '\n' + estadoTexto(partida);
+    render();
+    return true;
+  }
+  function paso() {
+    if (!partida) return false;
+    if (partida.fin || idx >= val.datos.comandos.length) { detener(); return false; }
+    const c = val.datos.comandos[idx++];
+    const ev = jugarTurno(partida, c);
+    log += '\n\n<span class="h">── Turno ' + partida.turno + ' · comando ' + c + ' ──</span>\n' + esc(mapaTexto(partida.mapa)) + '\n' + estadoTexto(partida) + (ev.length ? '\n<span class="dim">' + esc(ev.join('\n')) + '</span>' : '');
+    render();
+    if (partida.fin || idx >= val.datos.comandos.length) detener();
+    return true;
+  }
+  $('r-run').addEventListener('click', () => {
+    if (!iniciar()) return;
+    if (val.datos.s === 0) { while (paso()); return; }
+    timer = setInterval(paso, val.datos.s);
+  });
+  $('r-step').addEventListener('click', () => { detener(); if (!partida && !iniciar()) return; paso(); });
+  $('r-reset').addEventListener('click', iniciar);
+  $('r-rnd').addEventListener('click', () => { $('r-w').value = '15'; $('r-h').value = '10'; $('r-m').value = 'rnd'; $('r-c').value = 'DDSSDDSSAAWW'; $('r-v').value = '5'; iniciar(); });
+
+  /* jugar en vivo: agrega la letra a c y ejecuta un turno */
+  function jugar(k) {
+    detener();
+    if (!partida) { if (!iniciar()) return; }
+    if (partida.fin) return;
+    // si quedan comandos pendientes de la cadena, se descartan para jugar desde aquí
+    const usado = val.datos.comandos.slice(0, idx);
+    val.datos.comandos = usado + k;
+    $('r-c').value = val.datos.comandos;
+    actualizarCmd();
+    paso();
+  }
+  document.querySelectorAll('.pad button').forEach(b => b.addEventListener('click', () => jugar(b.dataset.k)));
+  $('r-focus').addEventListener('keydown', e => {
+    const k = e.key.toUpperCase();
+    if ('WASDX'.includes(k) && k.length === 1) { e.preventDefault(); jugar(k); }
+  });
+  ids.forEach(k => $('r-' + k).addEventListener('input', actualizarCmd));
+  function setVista(v) {
+    vista = v;
+    $('r-tab-vis').classList.toggle('on', v === 'vis');
+    $('r-tab-con').classList.toggle('on', v === 'con');
+    $('r-visual').hidden = v !== 'vis';
+    $('r-term').hidden = v !== 'con';
+    render();
+  }
+  $('r-tab-vis').addEventListener('click', () => setVista('vis'));
+  $('r-tab-con').addEventListener('click', () => setVista('con'));
+  iniciar();
+})();
+
+(function () {
+  const links = Array.from(document.querySelectorAll('nav.toc a'));
+  const secs = links.map(a => document.querySelector(a.getAttribute('href')));
+  function onScroll() {
+    let act = 0;
+    secs.forEach((s, i) => { if (s && s.getBoundingClientRect().top < 140) act = i; });
+    links.forEach((l, i) => l.classList.toggle('active', i === act));
+  }
+  document.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+})();
+
+</script>
+</body>
+</html>
